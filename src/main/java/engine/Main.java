@@ -1,7 +1,6 @@
 package engine;
 
 import org.apache.spark.SparkConf;
-import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.sql.SparkSession;
 
 import commandLine.MainCommandLine;
@@ -17,16 +16,20 @@ public class Main {
 		MainOptionValues mOpts = mainCommandline.getOptionValues();
 		
 		SparkConf conf = new SparkConf();
-		conf.setMaster("local[*]").setAppName("barcodeMapping").set("spark.serializer", "org.apache.spark.serializer.KryoSerializer");
+		conf.setAppName("barcodeMapping").set("spark.serializer", "org.apache.spark.serializer.KryoSerializer");
+		//conf.setMaster("local[*]").setAppName("barcodeMapping").set("spark.serializer", "org.apache.spark.serializer.KryoSerializer");
 		
 		SparkSession spark = SparkSession.builder().config(conf).getOrCreate();
-			
-		//JavaSparkContext sc = new JavaSparkContext(spark.sparkContext());
 		
 		BarcodeMapping barcodeMapping = new BarcodeMapping(mOpts.getMaskFile(), mOpts.getRead1File(), 
 				mOpts.getRead2File(), mOpts.getOutFile(), mOpts.getBarcodeStart(), mOpts.getBarcodeLen(), mOpts.getUmiStart(), mOpts.getUmiLen(), 
-				mOpts.getBarcodeRead(), mOpts.getUmiRead());
+				mOpts.getBarcodeRead(), mOpts.getUmiRead(), mOpts.getOutPartition());
+		if (mOpts.getAdapterFile()!=null && !mOpts.getAdapterFile().isEmpty()) {
+			barcodeMapping.setAdapterFile(mOpts.getAdapterFile());
+		}
 		barcodeMapping.run(spark);
+		barcodeMapping.BarcodeMappingStat(mOpts.getStatFile());
+		spark.close();
 	}
 
 }

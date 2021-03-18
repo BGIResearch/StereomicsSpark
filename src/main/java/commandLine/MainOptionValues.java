@@ -7,12 +7,14 @@ public class MainOptionValues {
 	private String read2File;
 	private String outFile;
 	private String statFile;
+	private String adapterFile;
 	private int barcodeStart;
 	private int barcodeLen;
 	private int umiStart;
 	private int umiLen;
 	private int barcodeRead;
 	private int umiRead;
+	private int outPartition;
 	
 	public MainOptionValues() {
 		super();
@@ -105,6 +107,22 @@ public class MainOptionValues {
 
 	public void setUmiRead(int umiRead) {
 		this.umiRead = umiRead;
+	}
+
+	public int getOutPartition() {
+		return outPartition;
+	}
+
+	public void setOutPartition(int outPartition) {
+		this.outPartition = outPartition;
+	}
+
+	public String getAdapterFile() {
+		return adapterFile;
+	}
+
+	public void setAdapterFile(String adapterFile) {
+		this.adapterFile = adapterFile;
 	}
 
 }

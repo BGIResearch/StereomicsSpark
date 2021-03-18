@@ -2,6 +2,8 @@ package utils;
 
 import java.io.Serializable;
 
+import org.apache.spark.util.LongAccumulator;
+
 public class Utils implements Serializable{
 	
 	/**
@@ -26,14 +28,18 @@ public class Utils implements Serializable{
 	T		84	01010|10|0	2
 	*/
 	
-	public static long encode(String sequence) {
+	public static long encode(String sequence, int start, int length) {
 		long value = 0;
 		long tmp = 0;
-		for (int i = 0; i < sequence.length(); i++) {
+		for (int i = start; i < start+length; i++) {
 			tmp = (sequence.charAt(i) & 6) >> 1; //6: ob00000110	
 			value |= (tmp << (i*2));
 		}
 		return value;
+	}
+	
+	public static long encode(String sequence) {
+		return encode(sequence, 0, sequence.length());
 	}
 	
 	public static String decode(long seqInt, int seqLen) {
@@ -66,6 +72,16 @@ public class Utils implements Serializable{
 			return false;
 		}
 		return true;
+	}
+	
+	public static int seqQualityStat(String seqQual, int start, int length) {
+		int q30BaseCount = 0;
+		for (int i = start; i< start+length; i++) {
+			if (seqQual.charAt(i) >= Q30) {
+				q30BaseCount++;
+			}
+		}
+		return q30BaseCount;
 	}
 
 }

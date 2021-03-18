@@ -56,12 +56,14 @@ public class MainCommandLine {
 		optionValues.setRead2File(this.getStringValue("r2"));
 		optionValues.setOutFile(this.getStringValue("o"));
 		optionValues.setStatFile(this.getStringValue("stat", "statistic.txt"));
+		optionValues.setAdapterFile(this.getStringValue("adapterFile"));
 		optionValues.setBarcodeStart(this.getIntValue("barcodeStart", 0));
 		optionValues.setBarcodeLen(this.getIntValue("barcodeLen", 25));
 		optionValues.setBarcodeRead(this.getIntValue("barcodeRead", 1));
 		optionValues.setUmiStart(this.getIntValue("umiStart", 25));
 		optionValues.setUmiLen(this.getIntValue("umiLen", 10));
 		optionValues.setUmiRead(this.getIntValue("umiRead", 1));
+		optionValues.setOutPartition(this.getIntValue("outPartition", 0));
 	}
 	
 	public String[] getArgs() {
