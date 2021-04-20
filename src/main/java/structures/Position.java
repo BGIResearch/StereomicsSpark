@@ -2,7 +2,7 @@ package structures;
 
 import java.io.Serializable;
 
-public class Position implements Serializable{
+public class Position implements Serializable, Comparable<Position>{
 	
 	/**
 	 * 
@@ -25,6 +25,8 @@ public class Position implements Serializable{
 		return X + "_" + Y;
 	}
 	
+	
+	
 	public void setX(int x) {
 		this.X = x;
 	}
@@ -35,6 +37,15 @@ public class Position implements Serializable{
 
 	public void setY(int y) {
 		this.Y = y;
+	}
+
+	@Override
+	public int compareTo(Position o) {
+		if (this.Y == o.Y) {
+			return this.X - o.X;
+		}else {
+			return this.Y - o.Y;
+		}
 	}
 	
 }

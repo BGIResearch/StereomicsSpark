@@ -3,22 +3,30 @@ package engine;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
+import org.apache.spark.api.java.Optional;
 import org.apache.spark.util.LongAccumulator;
-
+import org.apache.spark.api.java.function.PairFlatMapFunction;
 import org.apache.spark.api.java.function.PairFunction;
 import org.apache.spark.sql.SparkSession;
 import org.apache.spark.storage.StorageLevel;
 
 import scala.Tuple2;
+import spark.BarcodeComparator;
 import spark.BarcodePartitioner;
 import spark.PositionPartitioner;
 import structures.Position;
 
 import java.io.BufferedWriter;
+import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Stack;
+
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.Text;
@@ -116,11 +124,43 @@ public class BarcodeMapping implements Serializable{
 		JavaPairRDD<Long, Tuple2<Text, MGISequencedFragment>> combinedReadsRdd = loadAndCombineFastq(sc, fastqJoinPartition, 
 				combinedReadsCount, umiFilteredReadsCount, adapterFilteredReadsCount, umiQ30BaseCount, barcodeQ30BaseCount, 
 				readQ30BaseCount, totalReadBaseCount);
-		
+		/*
+		JavaPairRDD<Long, Integer> capturedBarcodes = combinedReadsRdd.mapToPair(v -> new Tuple2<Long, Integer>(v._1, 1)).reduceByKey((v1, v2) -> v1+v2);
+		JavaPairRDD<Long, Tuple2<Integer, Optional<Position>>> capturedBpMapRdd = capturedBarcodes.leftOuterJoin(bpMapRdd);
+		BarcodeComparator barcodeComparator = new BarcodeComparator();
+		JavaPairRDD<Long, Optional<Position>> sortedCapturedBpMapRdd = capturedBpMapRdd.mapToPair(v -> new Tuple2<Long, Optional<Position>>(v._1, v._2._2))
+				.sortByKey(barcodeComparator);
+		sortedCapturedBpMapRdd.mapPartitionsToPair(new PairFlatMapFunction<Iterator<Tuple2<Long, Optional<Position>>>, Long, Position>(){
+
+			@Override
+			public Iterator<Tuple2<Long, Position>> call(Iterator<Tuple2<Long, Optional<Position>>> t)
+					throws Exception {
+				List<Tuple2<Long, Position>> result = new ArrayList<Tuple2<Long, Position>>();
+				Stack<Long> neighborBarcodes = new Stack<Long>();
+				Tuple2<Long, Optional<Position>> pre = t.next();
+				neighborBarcodes.push(pre._1);
+				Position currPos = pre._2.isPresent() ? pre._2.get() : null;
+				Tuple2<Long, Optional<Position>> curr;
+				while(t.hasNext()) {
+					curr = t.next();
+					Long top = neighborBarcodes.lastElement();
+					if (barcodeComparator.compare(curr._1, top)!=0) {
+						if (currPos != null && curr._2.isPresent())
+						neighborBarcodes.push(curr._1);
+					}
+				}
+				return null;
+			}
+			
+		});
+		JavaPairRDD<Long, Position> mappedBarcodes = capturedBpMapRdd.filter(v -> v._2._2.isPresent()).mapToPair(v -> new Tuple2<Long, Position>(v._1, v._2._2.get()));
+		JavaPairRDD<Long, Integer> unMappedBarcodes = capturedBpMapRdd.filter(v -> !v._2._2.isPresent()).mapToPair(v -> new Tuple2<Long, Integer>(v._1, 1));
+		*/
 		JavaPairRDD<Long, Tuple2<Tuple2<Text, MGISequencedFragment>, Position>> mappedReadsRdd = combinedReadsRdd.join(bpMapRdd);
 				//.filter(v -> (v !=null && v._2._1 !=null && v._2._2 != null));
-		JavaPairRDD<Position, Tuple2<Text, MGISequencedFragment>> positionReadsRdd = mappedReadsRdd
-				.mapToPair(new PairFunction<Tuple2<Long, Tuple2<Tuple2<Text, MGISequencedFragment>, Position>>, Position, Tuple2<Text, MGISequencedFragment>>(){
+		
+		JavaPairRDD<Text, MGISequencedFragment> outputReadsRdd = mappedReadsRdd
+				.mapToPair(new PairFunction<Tuple2<Long, Tuple2<Tuple2<Text, MGISequencedFragment>, Position>>, Text, MGISequencedFragment>(){
 
 					/**
 					 * 
@@ -128,32 +168,20 @@ public class BarcodeMapping implements Serializable{
 					private static final long serialVersionUID = 1L;
 
 					@Override
-					public Tuple2<Position, Tuple2<Text, MGISequencedFragment>> call(
+					public Tuple2<Text, MGISequencedFragment> call(
 							Tuple2<Long, Tuple2<Tuple2<Text, MGISequencedFragment>, Position>> t) throws Exception {
+						mappedReadsCount.add(1);
 						t._2._1._2.setCoordinate(t._2._2.toString());
-						return new Tuple2<Position, Tuple2<Text, MGISequencedFragment>>(t._2._2, t._2._1);
-					}					
-				}).persist(StorageLevel.MEMORY_AND_DISK_SER());
-		
-		JavaPairRDD<Text, MGISequencedFragment> outputReadsRdd = positionReadsRdd.mapToPair(new PairFunction<Tuple2<Position, Tuple2<Text,MGISequencedFragment>>, Text, MGISequencedFragment>(){
-
-			/**
-			 * 
-			 */
-			private static final long serialVersionUID = 1L;
-
-			public Tuple2<Text, MGISequencedFragment> call(
-					Tuple2<Position, Tuple2<Text, MGISequencedFragment>> t) throws Exception {
-				mappedReadsCount.add(1);
-				return t._2;
-			}
-		});
+						return t._2._1;
+					}				
+				});//.persist(StorageLevel.MEMORY_AND_DISK_SER());
 		Configuration conf = sc.hadoopConfiguration();
 		if (combinedReadsFile.endsWith(".gz")) {
 			conf.set(FileOutputFormat.COMPRESS,"true");
 			conf.set(FileOutputFormat.COMPRESS_CODEC,GzipCodec.class.getName());
 		}
 		if (outPartition>0) {
+			//outputReadsRdd = outputReadsRdd.repartition(outPartition);
 			outputReadsRdd = outputReadsRdd.coalesce(outPartition);
 		}
 		
@@ -171,7 +199,10 @@ public class BarcodeMapping implements Serializable{
 	
 	public JavaPairRDD<Long, Position> loadBinChipMaskFile(JavaSparkContext sc, final LongAccumulator inputBarcodesCount, int partition){
 		
-		
+		//Configuration conf = sc.hadoopConfiguration();
+		//if (partition > 0) {
+		//	conf.setInt("mapred.max.split.size", partition);
+		//}
 		JavaRDD<byte[]> maskRdd = sc.binaryRecords(maskFile, 16);
 		
 		JavaPairRDD<Long, Position> bpMapRdd = maskRdd.mapToPair(new PairFunction<byte[], Long, Position>(){
@@ -228,8 +259,7 @@ public class BarcodeMapping implements Serializable{
 			}			
 		});
 		
-		this.uniqueBarcode = bpMapRdd.count();
-		this.totalBarcode = inputBarcodesCount.value();
+		
 		return bpMapRdd;
 	}
 	
@@ -237,10 +267,18 @@ public class BarcodeMapping implements Serializable{
 			final LongAccumulator umiFilteredReadsCount, final LongAccumulator adapterFilteredReadsCount, final LongAccumulator umiQ30BaseCount,
 			final LongAccumulator barcodeQ30BaseCount, final LongAccumulator readQ30BaseCount, final LongAccumulator readBaseCount){
 		Configuration conf = sc.hadoopConfiguration();
-		//JavaPairRDD<Text, MGISequencedFragment> read1Rdd = sc.newAPIHadoopFile(this.read1File, MGIFastqInputFormat.class, Text.class, MGISequencedFragment.class, conf);
-		//JavaPairRDD<Text, MGISequencedFragment> read2Rdd = sc.newAPIHadoopFile(this.read2File, MGIFastqInputFormat.class, Text.class, MGISequencedFragment.class, conf);
-		JavaPairRDD<Text, MGISequencedFragment> read1Rdd = sc.newAPIHadoopFile(this.read1File, MgzFastqInputFormat.class, Text.class, MGISequencedFragment.class, conf);
-		JavaPairRDD<Text, MGISequencedFragment> read2Rdd = sc.newAPIHadoopFile(this.read2File, MgzFastqInputFormat.class, Text.class, MGISequencedFragment.class, conf);
+		File fq1 = new File(read1File);
+		String fq1Name = fq1.getName();
+		JavaPairRDD<Text, MGISequencedFragment> read1Rdd;
+		JavaPairRDD<Text, MGISequencedFragment> read2Rdd;
+		
+		if (fq1Name.endsWith("gz")){
+			read1Rdd = sc.newAPIHadoopFile(this.read1File, MgzFastqInputFormat.class, Text.class, MGISequencedFragment.class, conf);
+			read2Rdd = sc.newAPIHadoopFile(this.read2File, MgzFastqInputFormat.class, Text.class, MGISequencedFragment.class, conf);
+		}else {
+			read1Rdd = sc.newAPIHadoopFile(this.read1File, MGIFastqInputFormat.class, Text.class, MGISequencedFragment.class, conf);
+			read2Rdd = sc.newAPIHadoopFile(this.read2File, MGIFastqInputFormat.class, Text.class, MGISequencedFragment.class, conf);
+		}
 		JavaPairRDD<Text, Tuple2<MGISequencedFragment, MGISequencedFragment>> readsRdd = read1Rdd.join(read2Rdd);
 		final AdapterFilter adapterFilter = this.adapterFile!=null ? new AdapterFilter(this.adapterFile): null;
 		
@@ -292,7 +330,7 @@ public class BarcodeMapping implements Serializable{
 				Tuple2<Text, MGISequencedFragment> newValue = new Tuple2<Text, MGISequencedFragment>(reads._1, reads._2._2);
 				return new Tuple2<Long, Tuple2<Text, MGISequencedFragment>>(barcodeInt, newValue);
 			}			
-		}).filter(v -> v!=null);//.partitionBy(new BarcodePartitioner(partitionNum));
+		}).filter(v -> v!=null);//.persist(StorageLevel.MEMORY_AND_DISK_SER());//.partitionBy(new BarcodePartitioner(partitionNum));
 		return combinedReadsRdd;
 	}
 	

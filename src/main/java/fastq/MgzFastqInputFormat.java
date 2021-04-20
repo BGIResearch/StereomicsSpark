@@ -22,7 +22,7 @@ import java.util.concurrent.TimeUnit;
 
 public class MgzFastqInputFormat extends FileInputFormat<Text, MGISequencedFragment>{
 
-    public static final int SPLIT_BLOCK_NUM = 10;
+    public static final int SPLIT_BLOCK_NUM = 2;
     public static final String CONF_BASE_QUALITY_ENCODING = "hbam.fastq-input.base-quality-encoding";
     public static final String CONF_FILTER_FAILED_QC      = "hbam.fastq-input.filter-failed-qc";
     public static final String CONF_BASE_QUALITY_ENCODING_DEFAULT = "sanger";
