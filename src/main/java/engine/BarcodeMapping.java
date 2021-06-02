@@ -124,13 +124,17 @@ public class BarcodeMapping implements Serializable{
 		JavaPairRDD<Long, Tuple2<Text, MGISequencedFragment>> combinedReadsRdd = loadAndCombineFastq(sc, fastqJoinPartition, 
 				combinedReadsCount, umiFilteredReadsCount, adapterFilteredReadsCount, umiQ30BaseCount, barcodeQ30BaseCount, 
 				readQ30BaseCount, totalReadBaseCount);
-		/*
+		
+		/**
 		JavaPairRDD<Long, Integer> capturedBarcodes = combinedReadsRdd.mapToPair(v -> new Tuple2<Long, Integer>(v._1, 1)).reduceByKey((v1, v2) -> v1+v2);
 		JavaPairRDD<Long, Tuple2<Integer, Optional<Position>>> capturedBpMapRdd = capturedBarcodes.leftOuterJoin(bpMapRdd);
 		BarcodeComparator barcodeComparator = new BarcodeComparator();
 		JavaPairRDD<Long, Optional<Position>> sortedCapturedBpMapRdd = capturedBpMapRdd.mapToPair(v -> new Tuple2<Long, Optional<Position>>(v._1, v._2._2))
 				.sortByKey(barcodeComparator);
 		sortedCapturedBpMapRdd.mapPartitionsToPair(new PairFlatMapFunction<Iterator<Tuple2<Long, Optional<Position>>>, Long, Position>(){
+
+			
+			private static final long serialVersionUID = 1L;
 
 			@Override
 			public Iterator<Tuple2<Long, Position>> call(Iterator<Tuple2<Long, Optional<Position>>> t)
@@ -153,9 +157,12 @@ public class BarcodeMapping implements Serializable{
 			}
 			
 		});
+		
+		
 		JavaPairRDD<Long, Position> mappedBarcodes = capturedBpMapRdd.filter(v -> v._2._2.isPresent()).mapToPair(v -> new Tuple2<Long, Position>(v._1, v._2._2.get()));
 		JavaPairRDD<Long, Integer> unMappedBarcodes = capturedBpMapRdd.filter(v -> !v._2._2.isPresent()).mapToPair(v -> new Tuple2<Long, Integer>(v._1, 1));
 		*/
+		
 		JavaPairRDD<Long, Tuple2<Tuple2<Text, MGISequencedFragment>, Position>> mappedReadsRdd = combinedReadsRdd.join(bpMapRdd);
 				//.filter(v -> (v !=null && v._2._1 !=null && v._2._2 != null));
 		

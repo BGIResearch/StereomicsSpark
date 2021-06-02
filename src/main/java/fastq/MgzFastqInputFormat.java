@@ -22,7 +22,8 @@ import java.util.concurrent.TimeUnit;
 
 public class MgzFastqInputFormat extends FileInputFormat<Text, MGISequencedFragment>{
 
-    public static final int SPLIT_BLOCK_NUM = 2;
+    public static final int SPLIT_BLOCK_NUM = 3;
+    public static final long MAX_SPLIT_SIZE = 200000000;
     public static final String CONF_BASE_QUALITY_ENCODING = "hbam.fastq-input.base-quality-encoding";
     public static final String CONF_FILTER_FAILED_QC      = "hbam.fastq-input.filter-failed-qc";
     public static final String CONF_BASE_QUALITY_ENCODING_DEFAULT = "sanger";
@@ -92,7 +93,8 @@ public class MgzFastqInputFormat extends FileInputFormat<Text, MGISequencedFragm
 
                         block_num++;
 
-                        if(block_num>=SPLIT_BLOCK_NUM){
+                        //if(block_num>=SPLIT_BLOCK_NUM){
+                        if(splitSize >= MAX_SPLIT_SIZE) {
                             blkIndex = this.getBlockIndex(blkLocations, length - bytesRemaining);
                             splits.add(this.makeSplit(path, start, splitSize, blkLocations[blkIndex].getHosts()));
                             bytesRemaining -= splitSize;
