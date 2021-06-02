@@ -1,7 +1,7 @@
 # StereomicsSpark
 mapping barcode to stereo_chip
 
-##run
+## run
 ```
 usage: spark-submit --master yarn --executor-memory 64G --executor-cores 2 --class engine.main StereomicsSpark_1.0.jar \
         -m maskFile -r1 read1.fq -r2 read2.fq -o result --stat result.stat --outPartition 100  
