@@ -2,7 +2,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>BGI</groupId>
   <artifactId>StereomicsSpark</artifactId>
-  <version>0.0.5</version>
+  <version>1.0</version>
   <name>StereomicsHandle</name>
   <description>stereomics sequencing data analysis</description>
   <dependencies>
